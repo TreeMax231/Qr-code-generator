@@ -1,3 +1,4 @@
+@ -0,0 +1,139 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -66,14 +67,14 @@
             const qrcodeContainer = document.getElementById('qrcodeContainer');
             qrcodeContainer.innerHTML = '';
 
-            // 每30个串码为一组
-            for (let i = 0; i < serials.length; i += 30) {
-                const group = serials.slice(i, i + 30);
+            // 处理所有串码，无论数量多少
+            if (serials.length > 0) {
+                const group = serials;
                 const groupCount = group.length;
-                const startNum = i + 1;
-                const endNum = i + groupCount;
+                const startNum = 1;
+                const endNum = groupCount;
                 
-                // 格式化数据：1,2,串码1,串码2,...,串码30
+                // 格式化数据：1,2,串码1,串码2,...,串码N
                 let qrData = `${startNum},${endNum}`;
                 group.forEach((serial, idx) => {
                     qrData += `,${serial}`;
@@ -82,7 +83,7 @@
                 // 生成二维码
                 const qrDiv = document.createElement('div');
                 qrDiv.className = 'qrcode-item';
-                qrDiv.innerHTML = `<p>第${Math.floor(i/30) + 1}组 (${startNum}-${endNum})</p>`;
+                qrDiv.innerHTML = `<p>所有串码 (${startNum}-${endNum})</p>`;
                 qrcodeContainer.appendChild(qrDiv);
                 
                 const qrcode = new QRCode(qrDiv, {
