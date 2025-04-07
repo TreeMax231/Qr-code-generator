@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>串码集成二维码生成器</title>
+    <script src="qrcode.min.js"></script>
+<script>
+    window.addEventListener('load', function() {
+        if (typeof QRCode === 'undefined') {
+            alert('二维码库加载失败，请确保qrcode.min.js文件存在');
+            document.getElementById('generateBtn').disabled = true;
+        }
+    });
+</script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        textarea {
+            width: 100%;
+            height: 200px;
+            margin-bottom: 10px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #qrcodeContainer {
+            margin-top: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .qrcode-item {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>串码集成二维码生成器</h1>
+    <p>请在下方输入框中输入串码，每行一个：</p>
+    <textarea id="serialInput" placeholder="请输入串码，每行一个"></textarea>
+    <button id="generateBtn">生成二维码</button>
+    <button id="downloadImagesBtn" style="margin-left: 10px;">下载图片包</button>
+    <button id="downloadPdfBtn" style="margin-left: 10px;">下载PDF</button>
+    <div id="qrcodeContainer"></div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+    <script>
+        document.getElementById('generateBtn').addEventListener('click', function() {
+            const inputText = document.getElementById('serialInput').value;
+            const serials = inputText.split('\n').filter(item => item.trim() !== '');
+            const qrcodeContainer = document.getElementById('qrcodeContainer');
+            qrcodeContainer.innerHTML = '';
+
+            // 每30个串码为一组
+            for (let i = 0; i < serials.length; i += 30) {
+                const group = serials.slice(i, i + 30);
+                const groupCount = group.length;
+                const startNum = i + 1;
+                const endNum = i + groupCount;
+                
+                // 格式化数据：1,2,串码1,串码2,...,串码30
+                let qrData = `${startNum},${endNum}`;
+                group.forEach((serial, idx) => {
+                    qrData += `,${serial}`;
+                });
+                
+                // 生成二维码
+                const qrDiv = document.createElement('div');
+                qrDiv.className = 'qrcode-item';
+                qrDiv.innerHTML = `<p>第${Math.floor(i/30) + 1}组 (${startNum}-${endNum})</p>`;
+                qrcodeContainer.appendChild(qrDiv);
+                
+                const qrcode = new QRCode(qrDiv, {
+                    text: qrData,
+                    width: 200,
+                    height: 200,
+                    colorDark: '#000000',
+                    colorLight: '#ffffff',
+                    correctLevel: QRCode.CorrectLevel.H
+                });
+            }
+        });
+
+        document.getElementById('downloadImagesBtn').addEventListener('click', function() {
+            const qrDivs = document.querySelectorAll('.qrcode-item canvas');
+            if (qrDivs.length === 0) {
+                alert('请先生成二维码');
+                return;
+            }
+
+            const zip = new JSZip();
+            const imgFolder = zip.folder('qrcodes');
+            
+            qrDivs.forEach((canvas, index) => {
+                const imgData = canvas.toDataURL('image/png').replace(/^data:image\/png;base64,/, '');
+                imgFolder.file(`qrcode_${index + 1}.png`, imgData, {base64: true});
+            });
+
+            zip.generateAsync({type: 'blob'}).then(function(content) {
+                saveAs(content, 'qrcodes.zip');
+            });
+        });
+
+        document.getElementById('downloadPdfBtn').addEventListener('click', function() {
+            const qrDivs = document.querySelectorAll('.qrcode-item canvas');
+            if (qrDivs.length === 0) {
+                alert('请先生成二维码');
+                return;
+            }
+
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF();
+            
+            qrDivs.forEach((canvas, index) => {
+                if (index > 0) pdf.addPage();
+                const imgData = canvas.toDataURL('image/png');
+                pdf.addImage(imgData, 'PNG', 10, 10, 190, 190);
+            });
+
+            pdf.save('qrcodes.pdf');
+        });
+    </script>
+</body>
+</html>
