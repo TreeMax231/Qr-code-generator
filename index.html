@@ -1,4 +1,3 @@
-@ -0,0 +1,139 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -49,16 +48,52 @@
     </style>
 </head>
 <body>
-    <h1>串码集成二维码生成器</h1>
-    <p>请在下方输入框中输入串码，每行一个：</p>
+    <h1>串码聚合二维码生成器</h1>
+    <p>请在下方大输入框中输入串码，每行一个：</p>
+    <div style="margin-bottom: 10px;">
+        <label for="manufacturerInput">厂家：</label>
+        <input type="text" id="manufacturerInput" placeholder="请输入厂家名称">
+    </div>
+    <div style="margin-bottom: 10px;">
+        <label for="modelInput">型号：</label>
+        <input type="text" id="modelInput" placeholder="请输入产品型号">
+    </div>
+    <div style="margin-bottom: 10px;">
+        <label for="batchSizeSelect">每个二维码聚合串码数量：</label>
+        <select id="batchSizeSelect">
+            <option value="30">30</option>
+            <option value="60">60</option>
+            <option value="80">80</option>
+            <option value="100">100</option>
+            <option value="200">200</option>
+            <option value="custom">自定义</option>
+        </select>
+        <input type="number" id="customBatchSize" style="display: none; margin-left: 10px; width: 60px;" placeholder="数量" min="1">
+    </div>
+    <script>
+        document.getElementById('batchSizeSelect').addEventListener('change', function() {
+            const customInput = document.getElementById('customBatchSize');
+            if (this.value === 'custom') {
+                customInput.style.display = 'inline-block';
+                customInput.focus();
+            } else {
+                customInput.style.display = 'none';
+            }
+        });
+    </script>
     <textarea id="serialInput" placeholder="请输入串码，每行一个"></textarea>
+    <div style="margin-bottom: 10px;">
+        <label for="filenameInput">下载文件名自定义：</label>
+        <input type="text" id="filenameInput" placeholder="请输入文件名(不带后缀)">
+    </div>
     <button id="generateBtn">生成二维码</button>
     <button id="downloadImagesBtn" style="margin-left: 10px;">下载图片包</button>
     <button id="downloadPdfBtn" style="margin-left: 10px;">下载PDF</button>
     <div id="qrcodeContainer"></div>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script src="./jspdf.umd.min.js"></script>
+    <script src="./jszip.min.js"></script>
+    <script src="./FileSaver.min.js"></script>
+
 
     <script>
         document.getElementById('generateBtn').addEventListener('click', function() {
@@ -67,23 +102,43 @@
             const qrcodeContainer = document.getElementById('qrcodeContainer');
             qrcodeContainer.innerHTML = '';
 
-            // 处理所有串码，无论数量多少
-            if (serials.length > 0) {
-                const group = serials;
-                const groupCount = group.length;
-                const startNum = 1;
-                const endNum = groupCount;
+            // 获取用户选择的分组大小
+            const batchSizeSelect = document.getElementById('batchSizeSelect');
+            const customBatchSize = document.getElementById('customBatchSize');
+            let batchSize = 30;
+            
+            if (batchSizeSelect.value === 'custom') {
+                batchSize = parseInt(customBatchSize.value) || 30;
+            } else {
+                batchSize = parseInt(batchSizeSelect.value);
+            }
+            
+            // 按用户选择的数量分组
+            for (let i = 0; i < serials.length; i += batchSize) {
+                const group = serials.slice(i, i + batchSize);
+                const manufacturer = document.getElementById('manufacturerInput').value;
+                const model = document.getElementById('modelInput').value;
                 
-                // 格式化数据：1,2,串码1,串码2,...,串码N
-                let qrData = `${startNum},${endNum}`;
+                // 格式化数据
+                let qrData = '';
+                let displayText = `第${Math.floor(i/batchSize) + 1}组`;
+                
+                if (manufacturer || model) {
+                    qrData = `厂家:${manufacturer},型号:${model}`;
+                    displayText += ` (厂家:${manufacturer} 型号:${model})`;
+                } else {
+                    qrData = `${i+1},${Math.min(i+batchSize, serials.length)}`;
+                    displayText += ` (串码${i+1}-${Math.min(i+batchSize, serials.length)})`;
+                }
+                
                 group.forEach((serial, idx) => {
-                    qrData += `,${serial}`;
+                    qrData += (qrData ? ',' : '') + serial;
                 });
                 
                 // 生成二维码
                 const qrDiv = document.createElement('div');
                 qrDiv.className = 'qrcode-item';
-                qrDiv.innerHTML = `<p>所有串码 (${startNum}-${endNum})</p>`;
+                qrDiv.innerHTML = `<p>${displayText}</p>`;
                 qrcodeContainer.appendChild(qrDiv);
                 
                 const qrcode = new QRCode(qrDiv, {
@@ -112,9 +167,12 @@
                 imgFolder.file(`qrcode_${index + 1}.png`, imgData, {base64: true});
             });
 
-            zip.generateAsync({type: 'blob'}).then(function(content) {
-                saveAs(content, 'qrcodes.zip');
-            });
+            const filenameInput = document.getElementById('filenameInput').value;
+                const filename = filenameInput ? filenameInput : 'qrcodes_' + 
+                    new Date().getFullYear() + '' + (new Date().getMonth() + 1).toString().padStart(2, '0') + '' + new Date().getDate().toString().padStart(2, '0');
+                zip.generateAsync({type: 'blob'}).then(function(content) {
+                    saveAs(content, filename + '.zip');
+                });
         });
 
         document.getElementById('downloadPdfBtn').addEventListener('click', function() {
@@ -133,8 +191,12 @@
                 pdf.addImage(imgData, 'PNG', 10, 10, 190, 190);
             });
 
-            pdf.save('qrcodes.pdf');
+            const filenameInput = document.getElementById('filenameInput').value;
+                const filename = filenameInput ? filenameInput : 'qrcodes_' + 
+                    new Date().getFullYear() + '' + (new Date().getMonth() + 1).toString().padStart(2, '0') + '' + new Date().getDate().toString().padStart(2, '0');
+                pdf.save(filename + '.pdf');
         });
     </script>
+    <div style="position: fixed; bottom: 10px; right: 10px; opacity: 0.5; font-size: 24px;">树 🌲</div>
 </body>
 </html>
